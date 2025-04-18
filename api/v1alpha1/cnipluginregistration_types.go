@@ -12,12 +12,12 @@ type CNIPluginRegistrationSpec struct {
 	BinaryPath     string `json:"binaryPath"` // e.g. /plugins/sysctl-manager
 }
 
-// NodePluginStatus tracks readiness per node
 type NodePluginStatus struct {
 	NodeName  string      `json:"node"`
 	Ready     bool        `json:"ready"`
 	Message   string      `json:"message,omitempty"`
 	UpdatedAt metav1.Time `json:"updatedAt"`
+	Phase     string      `json:"phase,omitempty"` // installing, ready, failed
 }
 
 // CNIPluginRegistrationStatus shows plugin rollout state

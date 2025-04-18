@@ -57,11 +57,12 @@ spec:
             properties:
               nodes:
                 items:
-                  description: NodePluginStatus tracks readiness per node
                   properties:
                     message:
                       type: string
                     node:
+                      type: string
+                    phase:
                       type: string
                     ready:
                       type: boolean
