@@ -1,0 +1,10 @@
+apiVersion: k8s.cni.cncf.io/v1alpha1
+kind: CNIPluginRegistration
+metadata:
+  name: tuning
+  namespace: kube-system
+spec:
+  cniType: tuning
+  image: quay.io/dosmith/cni-plugins:v1.6.2
+  binaryPath: /usr/src/bin/cni/tuning
+  config: '{ "foo": "bar"}'
