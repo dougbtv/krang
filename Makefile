@@ -22,6 +22,10 @@ krangd-dev:
 krangd:
 	GOARCH=amd64 CGO_ENABLED=0 go build -o bin/krangd ./cmd/krangd
 
+krangctl:
+	GOARCH=amd64 CGO_ENABLED=0 go build -o bin/krangctl ./cmd/krangctl
+	scp -o ProxyCommand="$(KRANGD_PROXY)" bin/krangctl fedora@$(KRANGD_HOST):$(HOME_REMOTE_PATH)krangctl
+
 krangd-kind-copy:
 	@echo "📦 Copying krangd into Kind nodes..."
 	@ssh -o ProxyCommand="$(SSH_PROXY)" $(SSH_USER) '\
