@@ -2,12 +2,14 @@ package main
 
 import (
 	"flag"
+	"log"
 	"os"
 
 	"github.com/dougbtv/krang/api/v1alpha1"
 	"github.com/dougbtv/krang/controllers"
 	"github.com/dougbtv/krang/pkg/logging"
 
+	"github.com/go-logr/stdr"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -39,6 +41,8 @@ func main() {
 	logging.SetLogLevel(logLevel)
 	logging.SetLogStderr(true)
 	logging.Debugf("Starting krangd node-local daemon")
+
+	ctrl.SetLogger(stdr.New(log.New(os.Stderr, "", log.LstdFlags)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,

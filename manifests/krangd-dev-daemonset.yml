@@ -10,11 +10,17 @@ metadata:
   name: krangd
 rules:
   - apiGroups: ["k8s.cni.cncf.io"]
-    resources: ["cnipluginregistrations", "cnimutationrequests"]
-    verbs: ["get", "list", "watch", "update", "patch"]
+    resources:
+      - cnipluginregistrations
+      - cnipluginregistrations/status
+      - cnimutationrequests
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["nodes"]
-    verbs: ["get", "list"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -73,6 +79,11 @@ spec:
               mountPath: /opt/cni/bin
             - name: cni-conf
               mountPath: /etc/cni/net.d
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
       volumes:
         - name: krang-bin
           hostPath:
