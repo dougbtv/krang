@@ -10,6 +10,7 @@ type CNIMutationRequestSpec struct {
 	PodSelector    metav1.LabelSelector `json:"podSelector"`
 	CNINetworkType string               `json:"cniType"`   // e.g. "bpfman", "sysctl-manager"
 	Interface      string               `json:"interface"` // Optional: which interface
+	CNIConfig      string               `json:"config"`    // Raw CNI JSON config
 
 	// Arbitrary plugin-specific arguments
 	Args runtime.RawExtension `json:"args,omitempty"`
@@ -22,6 +23,7 @@ type CNIMutationRequestStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 type CNIMutationRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

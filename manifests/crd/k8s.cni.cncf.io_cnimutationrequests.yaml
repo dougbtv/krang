@@ -44,6 +44,8 @@ spec:
                 x-kubernetes-preserve-unknown-fields: true
               cniType:
                 type: string
+              config:
+                type: string
               interface:
                 type: string
               podSelector:
@@ -97,6 +99,7 @@ spec:
                 x-kubernetes-map-type: atomic
             required:
             - cniType
+            - config
             - interface
             - podSelector
             type: object
@@ -165,3 +168,5 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}

@@ -16,7 +16,7 @@ rules:
       - cnimutationrequests
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
-    resources: ["nodes"]
+    resources: ["nodes","pods"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["batch"]
     resources: ["jobs"]
@@ -80,6 +80,8 @@ spec:
               mountPropagation: HostToContainer
             - name: cni-conf
               mountPath: /etc/cni/net.d
+            - name: cni-results
+              mountPath: /var/lib/cni/results
           env:
             - name: NODE_NAME
               valueFrom:
@@ -105,3 +107,6 @@ spec:
         - name: cni-conf
           hostPath:
             path: /etc/cni/net.d
+        - name: cni-results
+          hostPath:
+            path: /var/lib/cni/results

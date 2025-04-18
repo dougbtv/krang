@@ -16,3 +16,5 @@ kube-system/macvlan
   - kind-worker: ready (ready: true)
   - kind-control-plane: ready (ready: true)
 ```
+
+./krangctl create --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "quay.io/dosmith/multus-thick:cnisubdirA"
