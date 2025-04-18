@@ -77,6 +77,7 @@ spec:
               readOnly: true
             - name: cni-bin
               mountPath: /opt/cni/bin
+              mountPropagation: HostToContainer
             - name: cni-conf
               mountPath: /etc/cni/net.d
           env:

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -67,58 +68,68 @@ func (r *CNIPluginRegistrationReconciler) Reconcile(ctx context.Context, req ctr
 		}
 	} else {
 		logging.Debugf("Job already exists for node %s", localNodeName)
-	}
 
-	// Determine if binary exists on disk
-	pluginBinary := filepath.Base(reg.Spec.BinaryPath)
-	pluginPath := filepath.Join("/opt/cni/bin", pluginBinary)
-	_, statErr := os.Stat(pluginPath)
-	ready := statErr == nil
-	phase := "installing"
-	if ready {
-		phase = "ready"
-		logging.Verbosef("Plugin binary %s found on disk for node %s", pluginPath, localNodeName)
-	} else {
-		logging.Debugf("Plugin binary %s not found yet on node %s", pluginPath, localNodeName)
-	}
+		// Check if job completed successfully
+		for _, cond := range job.Status.Conditions {
+			if cond.Type == batchv1.JobComplete && cond.Status == v1.ConditionTrue {
+				// Now check for binary existence
+				pluginBinary := filepath.Base(reg.Spec.BinaryPath)
+				pluginPath := filepath.Join("/opt/cni/bin", pluginBinary)
+				_, statErr := os.Stat(pluginPath)
+				ready := statErr == nil
+				phase := "installing"
+				if ready {
+					phase = "ready"
+					logging.Verbosef("Plugin binary %s found on disk for node %s", pluginPath, localNodeName)
+				} else {
+					logging.Debugf("Plugin binary %s not found yet on node %s", pluginPath, localNodeName)
+				}
 
-	nodeStatus := v1alpha1.NodePluginStatus{
-		NodeName:  localNodeName,
-		Ready:     ready,
-		Phase:     phase,
-		UpdatedAt: now,
-	}
+				nodeStatus := v1alpha1.NodePluginStatus{
+					NodeName:  localNodeName,
+					Ready:     ready,
+					Phase:     phase,
+					UpdatedAt: now,
+				}
 
-	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		fresh := &v1alpha1.CNIPluginRegistration{}
-		if err := r.Get(ctx, req.NamespacedName, fresh); err != nil {
-			return err
-		}
+				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+					fresh := &v1alpha1.CNIPluginRegistration{}
+					if err := r.Get(ctx, req.NamespacedName, fresh); err != nil {
+						return err
+					}
 
-		logging.Debugf("Appending status for node %s to CR %s/%s", localNodeName, req.Namespace, req.Name)
+					logging.Debugf("Updating node status for %s in CR %s/%s", localNodeName, req.Namespace, req.Name)
 
-		found := false
-		for i, n := range fresh.Status.Nodes {
-			if n.NodeName == localNodeName {
-				fresh.Status.Nodes[i] = nodeStatus
-				found = true
-				break
+					found := false
+					for i, n := range fresh.Status.Nodes {
+						if n.NodeName == localNodeName {
+							fresh.Status.Nodes[i] = nodeStatus
+							found = true
+							break
+						}
+					}
+					if !found {
+						fresh.Status.Nodes = append(fresh.Status.Nodes, nodeStatus)
+					}
+
+					return r.Status().Update(ctx, fresh)
+				})
+
+				if err != nil {
+					logging.Errorf("Failed to update status for %s: %v", localNodeName, err)
+					return ctrl.Result{}, err
+				}
+
+				logging.Verbosef("Successfully updated status for node %s", localNodeName)
+				return ctrl.Result{}, nil
 			}
 		}
-		if !found {
-			fresh.Status.Nodes = append(fresh.Status.Nodes, nodeStatus)
-		}
 
-		return r.Status().Update(ctx, fresh)
-	})
-
-	if err != nil {
-		logging.Errorf("Failed to update status for %s: %v", localNodeName, err)
-		return ctrl.Result{}, err
+		logging.Debugf("Job not yet complete for node %s", localNodeName)
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	logging.Verbosef("Successfully updated status for node %s", localNodeName)
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
 func generateInstallJob(reg *v1alpha1.CNIPluginRegistration, nodeName, jobName, namespace string) *batchv1.Job {
