@@ -16,6 +16,8 @@ Inspired by the technorganic villain, krang doesn’t *do* the fighting, krang p
 
 Maybe it can inspired a next generation of thinking about CNI and integration with Kubernetes. But guess what? It doesn't require anything special or any mods to Kubernetes itself.
 
+Now with more pizza 🍕 and less other stuff.
+
 ## `krangctl`
 
 You can use `krangctl` like this:
