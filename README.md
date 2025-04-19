@@ -2,9 +2,19 @@
 
 ![krang logo, dude.](https://github.com/dougbtv/krang/blob/main/doc/krang-logo.png)
 
-An Kubernetes-enabled CNI.next runtime.
+An Kubernetes-enabled CNI.next runtime. It enables CNI actions during pod lifecycle, and maybe gives a little better bindings to K8s.
 
-It can mutate stuff.
+It can mutate stuff, dude.
+
+## What's it do?
+
+Krang is a Kubernetes-enabled CNI runtime that enables dynamic network operations throughout pod lifecycle. Whether you’re installing CNI plugins at runtime, mutating active network namespaces, or extending how networking behaves across your cluster, Krang gives you fine-grained, programmable control over CNI behavior -- right from the Kubernetes control plane.
+
+Krang comes in two parts: A node-local daemon that can delegate CNI calls, and `krangctl` to make it a little easier to use.
+
+Inspired by the technorganic villain, krang doesn’t *do* the fighting, krang puppeteers the exosuit. Likewise, this daemon doesn’t replace your plugins -- it orchestrates them. Think of it as the brains behind your network’s brawn: coordinating plugin installs, executing mutations, and enabling on-the-fly changes to your pod networks -- all without leaving the comfort of Kubernetes.
+
+Maybe it can inspired a next generation of thinking about CNI and integration with Kubernetes. But guess what? It doesn't require anything special or any mods to Kubernetes itself.
 
 ## `krangctl`
 
@@ -24,3 +34,9 @@ kube-system/macvlan
 ```
 ./krangctl create --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "quay.io/dosmith/multus-thick:cnisubdirA"
 ```
+
+## Outstanding stuff.
+
+* Basically everything.
+* Only does conflists.
+* `$(more.)`
