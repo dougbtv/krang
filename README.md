@@ -1,5 +1,7 @@
 # krang
 
+![krang logo, dude.](docs/krang-logo.png)
+
 An Kubernetes-enabled CNI.next runtime.
 
 It can mutate stuff.
@@ -17,4 +19,8 @@ kube-system/macvlan
   - kind-control-plane: ready (ready: true)
 ```
 
+## Demo.
+
+```
 ./krangctl create --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "quay.io/dosmith/multus-thick:cnisubdirA"
+```
