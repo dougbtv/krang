@@ -9,12 +9,12 @@ import (
 
 	"github.com/containernetworking/cni/libcni"
 	krangv1alpha1 "github.com/dougbtv/krang/api/v1alpha1"
+	"github.com/dougbtv/krang/pkg/logging"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // CNIMutationRequestReconciler reconciles a CNIMutationRequest object
@@ -25,8 +25,7 @@ type CNIMutationRequestReconciler struct {
 }
 
 func (r *CNIMutationRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-	logger.Info("Reconciling CNIMutationRequest", "name", req.NamespacedName)
+	logging.Verbosef("Reconciling CNIMutationRequest: %s", req.NamespacedName)
 
 	var mutateReq krangv1alpha1.CNIMutationRequest
 	if err := r.Get(ctx, req.NamespacedName, &mutateReq); err != nil {
@@ -54,10 +53,13 @@ func (r *CNIMutationRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// Search for the matching results file
 		entries, err := os.ReadDir("/var/lib/cni/results")
 		if err != nil {
-			logger.Error(err, "Unable to list CNI results directory")
+			logging.Errorf("Unable to list CNI results directory: %v", err)
 			continue
 		}
 
+		// TODO: This whole bit about reading CNI cache results could be an entirely library.
+		// Or it needs another approach, but for now, it has everything I need to say "this is how I exec a CNI plugin against a running netns"
+		// Additionally, this is probably a slow way to do it. It's PoC style here.
 		var resultFile string
 		for _, entry := range entries {
 			if !entry.Type().IsRegular() || !strings.HasSuffix(entry.Name(), "-eth0") {
@@ -75,13 +77,13 @@ func (r *CNIMutationRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 
 		if resultFile == "" {
-			logger.Info("No matching result file found", "pod", pod.Name)
+			logging.Verbosef("No matching CNI result file found for pod %s", pod.Name)
 			continue
 		}
 
 		raw, err := os.ReadFile(resultFile)
 		if err != nil {
-			logger.Error(err, "Could not read CNI result cache file", "path", resultFile)
+			logging.Errorf("Failed to read CNI result file: %v", err)
 			continue
 		}
 
@@ -90,7 +92,7 @@ func (r *CNIMutationRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			IfName string `json:"ifName"`
 		}
 		if err := json.Unmarshal(raw, &cached); err != nil {
-			logger.Error(err, "Failed to parse CNI result cache")
+			logging.Errorf("Failed to unmarshal CNI result file: %v", err)
 			continue
 		}
 
@@ -109,7 +111,7 @@ func (r *CNIMutationRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 		confList, err := libcni.ConfListFromBytes([]byte(mutateReq.Spec.CNIConfig))
 		if err != nil {
-			logger.Error(err, "Failed to parse CNI config")
+			logging.Errorf("Failed to parse CNI config: %v", err)
 			continue
 		}
 
@@ -118,11 +120,11 @@ func (r *CNIMutationRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 		result, err := cni.AddNetworkList(context.Background(), confList, rt)
 		if err != nil {
-			logger.Error(err, "CNI Add failed")
+			logging.Errorf("CNI Add failed: %v", err)
 			continue
 		}
 
-		logger.Info("CNI ADD completed", "pod", pod.Name, "result", result)
+		logging.Verbosef("CNI ADD completed: pod: %s / result: %v", pod.Name, result)
 	}
 
 	return ctrl.Result{}, nil
