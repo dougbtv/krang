@@ -2,7 +2,7 @@
 
 ![krang logo, dude.](https://github.com/dougbtv/krang/blob/main/doc/krang-logo.png)
 
-A Kubernetes-enabled CNI.next runtime. It enables CNI actions during pod lifecycle, and maybe gives a little better bindings to K8s.
+A Kubernetes-enabled CNI.next runtime. It enables CNI actions during pod lifecycle, and maybe enables some better K8s bindings for CNI, making it easier to write k8s-enabled CNI plugins.
 
 It can mutate stuff, dude.
 
@@ -19,6 +19,10 @@ Inspired by [the technorganic villain](https://en.wikipedia.org/wiki/Krang), kra
 Maybe it can inspire some thinking about the next generation of CNI and its integration with Kubernetes. But guess what? krang doesn't require anything special or any mods to Kubernetes itself.
 
 Now with more pizza 🍕 and less other stuff.
+
+## Did you know?
+
+CNI is "container orchestration agnostic" -- it doesn't have a bias towards any one container orchestration system. Should it be? Kubernetes developers want to develop on the k8s API, maybe we need some common ground between k8s and CNI.
 
 ## `krangctl`
 
