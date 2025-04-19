@@ -1,6 +1,6 @@
 # krang
 
-![krang logo, dude.](docs/krang-logo.png)
+![krang logo, dude.](https://github.com/dougbtv/krang/blob/main/doc/krang-logo.png)
 
 An Kubernetes-enabled CNI.next runtime.
 
