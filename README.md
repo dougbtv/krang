@@ -2,7 +2,7 @@
 
 ![krang logo, dude.](https://github.com/dougbtv/krang/blob/main/doc/krang-logo.png)
 
-An Kubernetes-enabled CNI.next runtime. It enables CNI actions during pod lifecycle, and maybe gives a little better bindings to K8s.
+A Kubernetes-enabled CNI.next runtime. It enables CNI actions during pod lifecycle, and maybe gives a little better bindings to K8s.
 
 It can mutate stuff, dude.
 
