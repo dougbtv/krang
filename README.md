@@ -6,6 +6,8 @@ A Kubernetes-enabled CNI.next runtime. It enables CNI actions during pod lifecyc
 
 It can mutate stuff, dude.
 
+Check out [the demo on asciinema](https://asciinema.org/a/DSNTIQIg5VM2mGh5oFK7YlGUW).
+
 ## What's it do?
 
 `krang` is a Kubernetes-enabled CNI runtime that enables dynamic network operations throughout pod lifecycle. Whether you’re installing CNI plugins at runtime, mutating active network namespaces, or extending how networking behaves across your cluster, krang gives you fine-grained, programmable control over CNI behavior -- right from the Kubernetes control plane.
@@ -13,8 +15,6 @@ It can mutate stuff, dude.
 For example -- say you want to do something to pod networking AFTER all the pods are up. Sure, you could restart them all, but do you want to? Nah. What if you could essentially CNI `UPDATE` them, and request the update with your k8s-enabled CNI plugin?
 
 Check out the demo on asciinema:
-
-[![asciicast](https://asciinema.org/a/DSNTIQIg5VM2mGh5oFK7YlGUW.svg)](https://asciinema.org/a/DSNTIQIg5VM2mGh5oFK7YlGUW)
 
 krang comes in two parts: A node-local daemon that can delegate CNI calls, and `krangctl` to make it a little easier to use.
 
