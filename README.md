@@ -4,7 +4,7 @@
 
 A Kubernetes-enabled CNI.next runtime. It enables CNI actions during pod lifecycle, and maybe enables some better K8s bindings for CNI, making it easier to write k8s-enabled CNI plugins.
 
-It can mutate stuff, dude.
+It can mutate your pods' network namespaces, dude.
 
 ## What's it do?
 
@@ -70,3 +70,6 @@ kube-system/macvlan
 * CNI execution in containers.
   * Execute terminal CNI plugins in containers and collect the logs?
   * This breaks my brain, a little, but there's something here.
+* CNI Cache
+  * Need to keep output, and decide how to use it
+  * It also uses the existing `ADD` cache, is that the right approach? Could be done other ways.
