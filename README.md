@@ -58,4 +58,11 @@ kube-system/macvlan
   * `network-status` annotation, or maybe DRA resourceclaim status, perhaps?
 * DRA integration, or a DRA framework for CNI developers.
 * Krang-as-primary-CNI, complete with chaining configuration.
+  * Representation of CNI configurations on disk, e.g. `krangctl get nodeconfig` or something.
 * New optional YAML configurations for CNI, along with validation.
+* Enable further observability, expose prom metrics, show history of actions against a netns?
+* Enable a way for k8s-enabled CNI plugins to compute everything prior to pod creation (e.g. at schedule time, or maybe prepare device time in DRA, stuff like that)
+  * So CNI doesn't have to `stop the world` (and [melt with you](https://www.youtube.com/watch?v=LuN6gs0AJls))
+* CNI execution in containers.
+  * Execute terminal CNI plugins in containers and collect the logs?
+  * This breaks my brain, a little, but there's something here.
