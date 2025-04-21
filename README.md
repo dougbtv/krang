@@ -12,6 +12,10 @@ It can mutate stuff, dude.
 
 For example -- say you want to do something to pod networking AFTER all the pods are up. Sure, you could restart them all, but do you want to? Nah. What if you could essentially CNI `UPDATE` them, and request the update with your k8s-enabled CNI plugin?
 
+Check out the demo on asciinema:
+
+[![asciicast](https://asciinema.org/a/DSNTIQIg5VM2mGh5oFK7YlGUW.svg)](https://asciinema.org/a/DSNTIQIg5VM2mGh5oFK7YlGUW)
+
 krang comes in two parts: A node-local daemon that can delegate CNI calls, and `krangctl` to make it a little easier to use.
 
 Inspired by [the technorganic villain](https://en.wikipedia.org/wiki/Krang), krang doesn’t *do* the fighting, krang puppeteers the exosuit. Likewise, this daemon doesn't replace your plugins -- it orchestrates them. Think of it as the brains behind your CNI plugins brawn: coordinating plugin installs, executing mutations, and enabling on-the-fly changes to your pod networks -- all without leaving the comfort of Kubernetes.
