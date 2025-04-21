@@ -1,0 +1,51 @@
+version: 2
+project_name: krang
+
+builds:
+  - id: krangd
+    main: ./cmd/krangd
+    binary: krangd
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+  - id: krangctl
+    main: ./cmd/krangctl
+    binary: krangctl
+    goos:
+      - linux
+      - darwin
+      # - windows
+    goarch:
+      - amd64
+      - arm64
+
+# archives:
+#   - id: krangd-archive
+#     builds: [krangd]
+#     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+#     format: tar.gz
+#     files:
+#       - LICENSE
+#       - README.md
+
+#   - id: krangctl-archive
+#     builds: [krangctl]
+#     name_template: "{{ .ProjectName }}_ctl_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+#     format: tar.gz
+#     files:
+#       - LICENSE
+#       - README.md
+
+
+release:
+  github:
+    owner: dougbtv
+    name: krang
+
+snapshot:
+  version_template: "{{ .ProjectName }}-snapshot"

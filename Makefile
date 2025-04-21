@@ -4,6 +4,7 @@ HOME_REMOTE_PATH=/home/fedora/
 KRANG_REMOTE_PATH=/var/lib/krangd/
 SSH_PROXY := ssh -W %h:%p root@192.168.50.200
 SSH_USER := fedora@192.168.122.138
+KRANG_IMAGE=ghcr.io/dougbtv/krang:latest
 
 define ssh_krangd
 	ssh $(SSH_PROXY) $(SSH_USER) '$(1)'
@@ -12,6 +13,18 @@ endef
 generate:
 	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./api/..."
 	controller-gen crd:crdVersions=v1 paths="./api/..." output:crd:dir=manifests/crd
+
+.PHONY: test
+test:
+	ginkgo -r ./controllers
+
+.PHONY: image
+image:
+	docker build -t $(KRANG_IMAGE) -f Dockerfile .
+
+.PHONY: push
+push:
+	docker push $(KRANG_IMAGE)
 
 krangd-dev:
 	# Run the krangd target
