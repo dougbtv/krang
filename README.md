@@ -18,17 +18,85 @@ Check out the demo on asciinema:
 
 krang comes in two parts: A node-local daemon that can delegate CNI calls, and `krangctl` to make it a little easier to use.
 
-Inspired by [the technorganic villain](https://en.wikipedia.org/wiki/Krang), krang doesn’t *do* the fighting, krang puppeteers the exosuit. Likewise, this daemon doesn't replace your plugins -- it orchestrates them. Think of it as the brains behind your CNI plugins brawn: coordinating plugin installs, executing mutations, and enabling on-the-fly changes to your pod networks -- all without leaving the comfort of Kubernetes.
+Inspired by [the technorganic villain](https://en.wikipedia.org/wiki/Krang), krang doesn’t *do* the fighting, krang puppeteers the exosuit and finances the foot soldiers. Likewise, this daemon doesn't replace your plugins -- it orchestrates them. Think of it as the brains behind your CNI plugins' brawn: coordinating plugin installs, executing mutations, and enabling on-the-fly changes to your pod networks -- all without leaving the comfort of Kubernetes.
 
-Maybe it can inspire some thinking about the next generation of CNI and its integration with Kubernetes. But guess what? krang doesn't require anything special or any mods to Kubernetes itself.
+Maybe it can inspire some thinking about the next generation of CNI and its integration with Kubernetes. But guess what? **krang doesn't require any mods to Kubernetes itself**! It works right out of the box with vanilla k8s.
 
 Now with more pizza 🍕 and less other stuff.
 
 ## Did you know?
 
-CNI is "container orchestration agnostic" -- it doesn't have a bias towards any one container orchestration system. Should it be? Kubernetes developers want to develop on the k8s API, maybe we need some common ground between k8s and CNI.
+CNI is "container orchestration agnostic" -- it doesn't have a bias towards any one container orchestration system. Should that be the case? Kubernetes developers want to develop on the k8s API, maybe we need some common ground between k8s and CNI.
 
-## `krangctl`
+## Installing `krangctl`
+
+Cowboy style (installs to `/usr/local/bin`, so you need privs to write there):
+
+```bash
+curl -sSfL https://raw.githubusercontent.com/dougbtv/krang/main/getkrang.sh | bash
+```
+
+The "*I might skim the script*"-style:
+
+```bash
+git clone https://github.com/dougbtv/krang.git
+cd krang
+./getkrang.sh
+```
+
+Or you can `go install` it:
+
+```bash
+go install github.com/dougbtv/krang/cmd/krangctl@latest
+```
+
+Try:
+
+```
+krangctl --help
+```
+
+## Installing `krang` on Kubernetes.
+
+First clone the repo...
+
+```
+git clone https://github.com/dougbtv/krang.git && cd krang
+```
+
+Then:
+
+```
+kubectl apply \
+  -f manifests/crd/k8s.cni.cncf.io_cnimutationrequests.yaml \
+  -f manifests/crd/k8s.cni.cncf.io_cnipluginregistrations.yaml \
+  -f manifests/daemonset.yml
+```
+
+## Demo.
+
+Requirements:
+
+* `krangctl` installed.
+* a clone of this repo (and it's your current directory).
+* and `kind`.
+
+```bash
+# Create a few pods.
+kubectl create -f manifests/testing/replicaset.yml
+# Check their sysctls.
+kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}') -- sysctl -n net.ipv4.conf.eth0.arp_filter
+# Install tuning CNI and passthru CNI (it's for an empty head to exec a CNI chain on top of)
+krangctl create --binary-path /cni-plugins/bin/tuning --cni-type tuning --name tuning --image "quay.io/dosmith/cni-plugins:v1.6.2a"
+krangctl create --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "ghcr.io/k8snetworkplumbingwg/multus-cni:snapshot-thick"
+# Show the installed plugins.
+watch krangctl get
+# Start a mutation request
+kubectl create -f manifests/testing/mutation-request.yml
+# Check the logs, if you must.
+# Now see the mutated sysctl!
+kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}') -- sysctl -n net.ipv4.conf.eth0.arp_filter
+```
 
 You can use `krangctl` like this:
 
@@ -40,8 +108,6 @@ kube-system/macvlan
   - kind-worker: ready (ready: true)
   - kind-control-plane: ready (ready: true)
 ```
-
-## Demo.
 
 ```
 ./krangctl create --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "quay.io/dosmith/multus-thick:cnisubdirA"

@@ -6,6 +6,6 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o krangctl ./cmd/krangctl
 RUN CGO_ENABLED=0 go build -o krangd ./cmd/krangd
 
-FROM gcr.io/distroless/static:nonroot
+FROM debian:stable-slim
 COPY --from=builder /app/krangd /krangd
 ENTRYPOINT ["/krangd"]

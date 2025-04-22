@@ -1,0 +1,108 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: krangd
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: krangd
+rules:
+  - apiGroups: ["k8s.cni.cncf.io"]
+    resources:
+      - cnipluginregistrations
+      - cnipluginregistrations/status
+      - cnimutationrequests
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: krangd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: krangd
+subjects:
+  - kind: ServiceAccount
+    name: krangd
+    namespace: kube-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: krangd
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: krangd
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: krangd
+    spec:
+      hostNetwork: true
+      hostPID: true
+      serviceAccountName: krangd
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: krangd
+          image: ghcr.io/dougbtv/krang:latest
+          args:
+            - "--log-level=debug"
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: host-run
+              mountPath: /host/run
+            - name: host-netns
+              mountPath: /run/netns
+              mountPropagation: HostToContainer
+            - name: pod-resources
+              mountPath: /var/lib/kubelet/pod-resources
+              readOnly: true
+            - name: cni-bin
+              mountPath: /opt/cni/bin
+              mountPropagation: HostToContainer
+            - name: cni-conf
+              mountPath: /etc/cni/net.d
+            - name: cni-results
+              mountPropagation: HostToContainer
+              mountPath: /var/lib/cni/results
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+      volumes:
+        - name: host-run
+          hostPath:
+            path: /run
+        - name: host-netns
+          hostPath:
+            path: /run/netns
+        - name: pod-resources
+          hostPath:
+            path: /var/lib/kubelet/pod-resources
+        - name: cni-bin
+          hostPath:
+            path: /opt/cni/bin
+        - name: cni-conf
+          hostPath:
+            path: /etc/cni/net.d
+        - name: cni-results
+          hostPath:
+            path: /var/lib/cni/results
