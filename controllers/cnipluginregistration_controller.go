@@ -62,6 +62,42 @@ func (r *CNIPluginRegistrationReconciler) Reconcile(ctx context.Context, req ctr
 				return ctrl.Result{}, err
 			}
 			logging.Verbosef("Created install job %s for node %s", jobName, localNodeName)
+
+			nodeStatus := v1alpha1.NodePluginStatus{
+				NodeName:  localNodeName,
+				Ready:     false,
+				Phase:     "installing",
+				UpdatedAt: now,
+			}
+
+			err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				fresh := &v1alpha1.CNIPluginRegistration{}
+				if err := r.Get(ctx, req.NamespacedName, fresh); err != nil {
+					return err
+				}
+
+				logging.Debugf("Updating node status to installing for %s in CR %s/%s", localNodeName, req.Namespace, req.Name)
+
+				found := false
+				for i, n := range fresh.Status.Nodes {
+					if n.NodeName == localNodeName {
+						fresh.Status.Nodes[i] = nodeStatus
+						found = true
+						break
+					}
+				}
+				if !found {
+					fresh.Status.Nodes = append(fresh.Status.Nodes, nodeStatus)
+				}
+
+				return r.Status().Update(ctx, fresh)
+			})
+
+			if err != nil {
+				logging.Errorf("Failed to update installing status for %s: %v", localNodeName, err)
+				return ctrl.Result{}, err
+			}
+
 		} else {
 			logging.Errorf("Failed to check job for node %s: %v", localNodeName, err)
 			return ctrl.Result{}, err
