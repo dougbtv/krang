@@ -1,0 +1,15 @@
+{
+  "cniVersion": "0.4.0",
+  "name": "update-tuning",
+  "plugins": [
+    {
+      "type": "passthru"
+    },
+    {
+      "type": "tuning",
+      "sysctl": {
+        "net.ipv4.conf.eth0.arp_filter": "1"
+      }
+    }
+  ]
+}

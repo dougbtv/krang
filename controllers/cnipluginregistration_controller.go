@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -20,6 +21,8 @@ import (
 	"github.com/dougbtv/krang/pkg/logging"
 	"k8s.io/client-go/util/retry"
 )
+
+const FinalizerName = "krangd.k8s.cni.cncf.io/plugin-cleanup"
 
 // CNIPluginRegistrationReconciler reconciles a CNIPluginRegistration object
 type CNIPluginRegistrationReconciler struct {
@@ -42,7 +45,46 @@ func (r *CNIPluginRegistrationReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, fmt.Errorf("NODE_NAME not set")
 	}
 
-	now := metav1.Now()
+	// Handle finalizer logic
+	if reg.DeletionTimestamp != nil {
+		logging.Verbosef("Handling deletion for %s on node %s", reg.Name, localNodeName)
+		if slices.Contains(reg.Finalizers, FinalizerName) {
+			// 1. Update status to "removing"
+			if err := UpdateNodeStatus(ctx, r.Client, req.NamespacedName, localNodeName, "removing", false, metav1.Now()); err != nil {
+				logging.Errorf("Failed to mark status removing: %v", err)
+				return ctrl.Result{}, err
+			}
+
+			// 2. Delete binary
+			pluginBinary := filepath.Base(reg.Spec.BinaryPath)
+			pluginPath := filepath.Join("/opt/cni/bin", pluginBinary)
+			if err := os.Remove(pluginPath); err != nil && !os.IsNotExist(err) {
+				logging.Errorf("Failed to remove plugin binary %s: %v", pluginPath, err)
+				return ctrl.Result{}, err
+			}
+			logging.Verbosef("Deleted plugin binary: %s", pluginPath)
+
+			// 3. Remove finalizer
+			reg.Finalizers = removeString(reg.Finalizers, FinalizerName)
+			if err := r.Update(ctx, &reg); err != nil {
+				logging.Errorf("Failed to remove finalizer: %v", err)
+				return ctrl.Result{}, err
+			}
+			logging.Verbosef("Finalizer removed from %s", req.NamespacedName)
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// Ensure finalizer is set
+	if !slices.Contains(reg.Finalizers, FinalizerName) {
+		reg.Finalizers = append(reg.Finalizers, FinalizerName)
+		if err := r.Update(ctx, &reg); err != nil {
+			logging.Errorf("Failed to add finalizer: %v", err)
+			return ctrl.Result{}, err
+		}
+		logging.Verbosef("Finalizer added to %s", req.NamespacedName)
+	}
+
 	pluginName := reg.Name
 	jobName := fmt.Sprintf("krang-install-%s-%s", pluginName, localNodeName)
 
@@ -63,41 +105,10 @@ func (r *CNIPluginRegistrationReconciler) Reconcile(ctx context.Context, req ctr
 			}
 			logging.Verbosef("Created install job %s for node %s", jobName, localNodeName)
 
-			nodeStatus := v1alpha1.NodePluginStatus{
-				NodeName:  localNodeName,
-				Ready:     false,
-				Phase:     "installing",
-				UpdatedAt: now,
-			}
-
-			err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				fresh := &v1alpha1.CNIPluginRegistration{}
-				if err := r.Get(ctx, req.NamespacedName, fresh); err != nil {
-					return err
-				}
-
-				logging.Debugf("Updating node status to installing for %s in CR %s/%s", localNodeName, req.Namespace, req.Name)
-
-				found := false
-				for i, n := range fresh.Status.Nodes {
-					if n.NodeName == localNodeName {
-						fresh.Status.Nodes[i] = nodeStatus
-						found = true
-						break
-					}
-				}
-				if !found {
-					fresh.Status.Nodes = append(fresh.Status.Nodes, nodeStatus)
-				}
-
-				return r.Status().Update(ctx, fresh)
-			})
-
-			if err != nil {
-				logging.Errorf("Failed to update installing status for %s: %v", localNodeName, err)
+			if err := UpdateNodeStatus(ctx, r.Client, req.NamespacedName, localNodeName, "installing", false, metav1.Now()); err != nil {
+				logging.Errorf("Failed to update node status on installing: %v", err)
 				return ctrl.Result{}, err
 			}
-
 		} else {
 			logging.Errorf("Failed to check job for node %s: %v", localNodeName, err)
 			return ctrl.Result{}, err
@@ -105,10 +116,8 @@ func (r *CNIPluginRegistrationReconciler) Reconcile(ctx context.Context, req ctr
 	} else {
 		logging.Debugf("Job already exists for node %s", localNodeName)
 
-		// Check if job completed successfully
 		for _, cond := range job.Status.Conditions {
 			if cond.Type == batchv1.JobComplete && cond.Status == v1.ConditionTrue {
-				// Now check for binary existence
 				pluginBinary := filepath.Base(reg.Spec.BinaryPath)
 				pluginPath := filepath.Join("/opt/cni/bin", pluginBinary)
 				_, statErr := os.Stat(pluginPath)
@@ -121,38 +130,8 @@ func (r *CNIPluginRegistrationReconciler) Reconcile(ctx context.Context, req ctr
 					logging.Debugf("Plugin binary %s not found yet on node %s", pluginPath, localNodeName)
 				}
 
-				nodeStatus := v1alpha1.NodePluginStatus{
-					NodeName:  localNodeName,
-					Ready:     ready,
-					Phase:     phase,
-					UpdatedAt: now,
-				}
-
-				err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-					fresh := &v1alpha1.CNIPluginRegistration{}
-					if err := r.Get(ctx, req.NamespacedName, fresh); err != nil {
-						return err
-					}
-
-					logging.Debugf("Updating node status for %s in CR %s/%s", localNodeName, req.Namespace, req.Name)
-
-					found := false
-					for i, n := range fresh.Status.Nodes {
-						if n.NodeName == localNodeName {
-							fresh.Status.Nodes[i] = nodeStatus
-							found = true
-							break
-						}
-					}
-					if !found {
-						fresh.Status.Nodes = append(fresh.Status.Nodes, nodeStatus)
-					}
-
-					return r.Status().Update(ctx, fresh)
-				})
-
-				if err != nil {
-					logging.Errorf("Failed to update status for %s: %v", localNodeName, err)
+				if err := UpdateNodeStatus(ctx, r.Client, req.NamespacedName, localNodeName, phase, ready, metav1.Now()); err != nil {
+					logging.Errorf("Failed to update node status: %v", err)
 					return ctrl.Result{}, err
 				}
 
@@ -160,12 +139,51 @@ func (r *CNIPluginRegistrationReconciler) Reconcile(ctx context.Context, req ctr
 				return ctrl.Result{}, nil
 			}
 		}
-
 		logging.Debugf("Job not yet complete for node %s", localNodeName)
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+}
+
+func UpdateNodeStatus(
+	ctx context.Context,
+	c client.Client,
+	key types.NamespacedName,
+	nodeName string,
+	phase string,
+	ready bool,
+	now metav1.Time,
+) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		updated := &v1alpha1.CNIPluginRegistration{}
+		if err := c.Get(ctx, key, updated); err != nil {
+			return err
+		}
+
+		logging.Verbosef("Updating node status for %s in CR %s", nodeName, key.String())
+
+		nodeStatus := v1alpha1.NodePluginStatus{
+			NodeName:  nodeName,
+			Ready:     ready,
+			Phase:     phase,
+			UpdatedAt: now,
+		}
+
+		found := false
+		for i, n := range updated.Status.Nodes {
+			if n.NodeName == nodeName {
+				updated.Status.Nodes[i] = nodeStatus
+				found = true
+				break
+			}
+		}
+		if !found {
+			updated.Status.Nodes = append(updated.Status.Nodes, nodeStatus)
+		}
+
+		return c.Status().Update(ctx, updated)
+	})
 }
 
 func generateInstallJob(reg *v1alpha1.CNIPluginRegistration, nodeName, jobName, namespace string) *batchv1.Job {
@@ -241,4 +259,14 @@ func (r *CNIPluginRegistrationReconciler) SetupWithManager(mgr ctrl.Manager) err
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.CNIPluginRegistration{}).
 		Complete(r)
+}
+
+func removeString(slice []string, s string) []string {
+	var result []string
+	for _, item := range slice {
+		if item != s {
+			result = append(result, item)
+		}
+	}
+	return result
 }

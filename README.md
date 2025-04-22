@@ -87,12 +87,12 @@ kubectl create -f manifests/testing/replicaset.yml
 # Check their sysctls.
 kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}') -- sysctl -n net.ipv4.conf.eth0.arp_filter
 # Install tuning CNI and passthru CNI (it's for an empty head to exec a CNI chain on top of)
-krangctl create --binary-path /cni-plugins/bin/tuning --cni-type tuning --name tuning --image "quay.io/dosmith/cni-plugins:v1.6.2a"
-krangctl create --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "ghcr.io/k8snetworkplumbingwg/multus-cni:snapshot-thick"
+krangctl register --binary-path /cni-plugins/bin/tuning --cni-type tuning --name tuning --image "quay.io/dosmith/cni-plugins:v1.6.2a"
+krangctl register --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "ghcr.io/k8snetworkplumbingwg/multus-cni:snapshot-thick"
 # Show the installed plugins.
 watch krangctl get
 # Start a mutation request
-kubectl create -f manifests/testing/mutation-request.yml
+krangctl mutate --cni-type tuning --interface eth0 --matchlabels app=demotuning --config ./manifests/testing/tuning-passthru-conf.json
 # Check the logs, if you must.
 # Now see the mutated sysctl!
 kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}') -- sysctl -n net.ipv4.conf.eth0.arp_filter
@@ -101,7 +101,7 @@ kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}
 You can use `krangctl` like this:
 
 ```
-$ ./krangctl create --binary-path /usr/src/bin/cni/macvlan --cni-type macvlan --name macvlan --image "quay.io/dosmith/cni-plugins:v1.6.2"
+$ ./krangctl register --binary-path /usr/src/bin/cni/macvlan --cni-type macvlan --name macvlan --image "quay.io/dosmith/cni-plugins:v1.6.2"
 $ ./krangctl get 
 kube-system/macvlan
   - kind-worker2: ready (ready: true)
@@ -110,7 +110,7 @@ kube-system/macvlan
 ```
 
 ```
-./krangctl create --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "quay.io/dosmith/multus-thick:cnisubdirA"
+./krangctl register --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "quay.io/dosmith/multus-thick:cnisubdirA"
 ```
 
 ## Outstanding stuff.
