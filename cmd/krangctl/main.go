@@ -4,8 +4,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
+	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
+	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +24,16 @@ import (
 
 	krangv1alpha1 "github.com/dougbtv/krang/api/v1alpha1"
 )
+
+var manifestURLs = []string{
+	"https://raw.githubusercontent.com/dougbtv/krang/main/manifests/crd/k8s.cni.cncf.io_cnipluginregistrations.yaml",
+	"https://raw.githubusercontent.com/dougbtv/krang/main/manifests/crd/k8s.cni.cncf.io_cnimutationrequests.yaml",
+	"https://raw.githubusercontent.com/dougbtv/krang/main/manifests/daemonset.yaml",
+}
+
+// var manifestURLs = []string{
+// 	"https://gist.githubusercontent.com/dougbtv/b83cf0105e11085bb707dc4b08ac07d3/raw/a208c7daf620fd3b11d99dcb972162c3391f3acc/krang.yml",
+// }
 
 func main() {
 	var kubeconfig string
@@ -31,6 +50,9 @@ func main() {
 	rootCmd.AddCommand(newUnregisterCmd(&kubeconfig))
 	rootCmd.AddCommand(newGetCmd(&kubeconfig))
 	rootCmd.AddCommand(newMutateCmd(&kubeconfig))
+	rootCmd.AddCommand(newInstallCmd(&kubeconfig))
+	rootCmd.AddCommand(newUninstallCmd(&kubeconfig))
+	rootCmd.AddCommand(newUpgradeCmd(&kubeconfig))
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -230,4 +252,129 @@ func newClient(kubeconfigPath string) (client.Client, error) {
 	_ = krangv1alpha1.AddToScheme(scheme)
 
 	return client.New(cfg, client.Options{Scheme: scheme})
+}
+
+func newInstallCmd(kubeconfig *string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "install",
+		Short: "Install the krangd DaemonSet and CRDs",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+			if err != nil {
+				return fmt.Errorf("building kubeconfig: %w", err)
+			}
+
+			k8sClient, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+			if err != nil {
+				return fmt.Errorf("creating client: %w", err)
+			}
+
+			for _, url := range manifestURLs {
+				fmt.Printf("📥 Applying manifest: %s\n", url)
+				resp, err := http.Get(url)
+				if err != nil {
+					return fmt.Errorf("downloading manifest %s: %w", url, err)
+				}
+				defer resp.Body.Close()
+
+				yamlDocs := utilyaml.NewYAMLOrJSONDecoder(resp.Body, 4096)
+				for {
+					var rawObj unstructured.Unstructured
+					if err := yamlDocs.Decode(&rawObj); err != nil {
+						if err == io.EOF {
+							break
+						}
+						return fmt.Errorf("decoding YAML: %w", err)
+					}
+
+					if rawObj.Object == nil {
+						continue
+					}
+
+					if err := k8sClient.Create(context.Background(), &rawObj); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: could not delete object: %v\n", err)
+					}
+				}
+			}
+
+			fmt.Println("⏳ Waiting for krangd daemonset to be ready...")
+			return wait.PollImmediate(2*time.Second, 60*time.Second, func() (bool, error) {
+				daemonset := &appsv1.DaemonSet{}
+				err := k8sClient.Get(context.Background(), client.ObjectKey{Name: "krangd", Namespace: "kube-system"}, daemonset)
+				if err != nil {
+					return false, nil // keep polling
+				}
+				if daemonset.Status.NumberAvailable == daemonset.Status.DesiredNumberScheduled {
+					fmt.Println("✅ krangd is ready!")
+					return true, nil
+				}
+				return false, nil
+			})
+		},
+	}
+	return cmd
+}
+
+func newUninstallCmd(kubeconfig *string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "uninstall",
+		Short: "Uninstall the krangd DaemonSet and CRDs",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+			if err != nil {
+				return fmt.Errorf("building kubeconfig: %w", err)
+			}
+
+			k8sClient, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+			if err != nil {
+				return fmt.Errorf("creating client: %w", err)
+			}
+
+			for _, url := range manifestURLs {
+				fmt.Printf("🗑️ Deleting manifest: %s\n", url)
+				resp, err := http.Get(url)
+				if err != nil {
+					return fmt.Errorf("downloading manifest %s: %w", url, err)
+				}
+				defer resp.Body.Close()
+
+				yamlDocs := utilyaml.NewYAMLOrJSONDecoder(resp.Body, 4096)
+				for {
+					var rawObj unstructured.Unstructured
+					if err := yamlDocs.Decode(&rawObj); err != nil {
+						if err == io.EOF {
+							break
+						}
+						return fmt.Errorf("decoding YAML: %w", err)
+					}
+
+					if rawObj.Object == nil {
+						continue
+					}
+
+					if err := k8sClient.Delete(context.Background(), &rawObj); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: could not delete object: %v\n", err)
+					}
+				}
+			}
+			fmt.Println("🧹 krang uninstalled!")
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newUpgradeCmd(kubeconfig *string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "upgrade",
+		Short: "Upgrade krang by uninstalling and reinstalling",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("🔄 Running upgrade...")
+			if err := newUninstallCmd(kubeconfig).RunE(cmd, args); err != nil {
+				return fmt.Errorf("uninstall failed: %w", err)
+			}
+			return newInstallCmd(kubeconfig).RunE(cmd, args)
+		},
+	}
+	return cmd
 }
