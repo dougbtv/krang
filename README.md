@@ -70,7 +70,7 @@ Then:
 kubectl apply \
   -f manifests/crd/k8s.cni.cncf.io_cnimutationrequests.yaml \
   -f manifests/crd/k8s.cni.cncf.io_cnipluginregistrations.yaml \
-  -f manifests/daemonset.yml
+  -f manifests/daemonset.yaml
 ```
 
 ## Demo.

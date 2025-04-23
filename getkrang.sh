@@ -5,7 +5,7 @@ BASEREPONAME=krang
 REPO="dougbtv/$BASEREPONAME"
 BINARY="krangctl"
 INSTALL_DIR="/usr/local/bin"
-VERSION="v0.0.2"
+# VERSION="v0.0.2"
 
 ARCH=$(uname -m)
 OS=$(uname | tr '[:upper:]' '[:lower:]')

@@ -1,0 +1,48 @@
+name: krang-e2e-kind
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  e2e:
+    name: krang-e2e-kind
+    runs-on: ubuntu-latest
+    env:
+      KIND_VERSION: v0.27.0
+      KUBECTL_VERSION: v1.31.0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build krangctl
+        run: |
+          make krangctl
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Download kind and kubectl
+        run: |
+          mkdir -p ./bin
+          curl -Lo ./bin/kind "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64"
+          chmod +x ./bin/kind
+          curl -Lo ./bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          chmod +x ./bin/kubectl
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
+      - name: Create kind cluster
+        run: ./scripts/e2e/create_kind.sh
+
+      - name: Build and load image
+        run: ./scripts/e2e/e2e_build_image.sh
+
+      - name: Run krang E2E test
+        run: ./scripts/e2e/e2e_krang_basic.sh

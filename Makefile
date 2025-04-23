@@ -37,6 +37,9 @@ krangd:
 
 krangctl:
 	GOARCH=amd64 CGO_ENABLED=0 go build -o bin/krangctl ./cmd/krangctl
+
+krangctl-dev:
+	$(MAKE) krangctl
 	scp -o ProxyCommand="$(KRANGD_PROXY)" bin/krangctl fedora@$(KRANGD_HOST):$(HOME_REMOTE_PATH)krangctl
 
 krangd-kind-copy:
