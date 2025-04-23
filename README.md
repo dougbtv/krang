@@ -1,4 +1,5 @@
 # krang
+![E2E status](https://img.shields.io/github/actions/workflow/status/dougbtv/krang/e2e.yaml) ![Unit test status](https://img.shields.io/github/actions/workflow/status/dougbtv/krang/testlint.yaml) ![Image Push Status](https://img.shields.io/github/actions/workflow/status/dougbtv/krang/image_push.yaml) ![pizza toppings](https://img.shields.io/badge/pizza_toppings-unstable-pink) ![exo suit](https://img.shields.io/badge/exosuit-synced-blue)
 
 ![krang logo, dude.](https://github.com/dougbtv/krang/blob/main/doc/krang-logo.png)
 
