@@ -56,7 +56,7 @@ for plugin in "${plugins[@]}"; do
     fi
   
     if (( ELAPSED >= TIMEOUT )); then
-      echo "Timed out waiting for $plugin install."
+      echo "Timed out ($TIMEOUT seconds) waiting for $plugin install."
       exit 1
     fi
   
@@ -70,16 +70,27 @@ done
 echo "Mutating, dude."
 krangctl mutate --cni-type tuning --interface eth0 --matchlabels app=demotuning --config ./manifests/testing/tuning-passthru-conf.json
 
-echo "Sleeping for a sec..."
-sleep 4
+TIMEOUT=30
+INTERVAL=1
+ELAPSED=0
 
-ARP_FILTER_AFTER=$(kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}') -- sysctl -n net.ipv4.conf.eth0.arp_filter)
+while true; do
+  # Check that the arp filter changed.
+  ARP_FILTER_AFTER=$(kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}') -- sysctl -n net.ipv4.conf.eth0.arp_filter)
+  if [ "$ARP_FILTER_BEFORE" != "$ARP_FILTER_AFTER" ]; then
+    echo "ARP filter changed from $ARP_FILTER_BEFORE to $ARP_FILTER_AFTER"
+    break
+  fi
 
-# Check that the arp filter changed.
-if [ "$ARP_FILTER_BEFORE" != "$ARP_FILTER_AFTER" ]; then
-  echo "ARP filter changed from $ARP_FILTER_BEFORE to $ARP_FILTER_AFTER"
-else
-  echo "ARP filter did not change, still $ARP_FILTER_AFTER"
-  exit 1
-fi
+  if (( ELAPSED >= TIMEOUT )); then
+    echo "Timed out ($TIMEOUT seconds) waiting for ARP filter change, still: $ARP_FILTER_AFTER"
+    exit 1
+  fi
+
+  sleep "$INTERVAL"
+  ELAPSED=$((ELAPSED + INTERVAL))
+done
+
+
+
 
