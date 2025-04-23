@@ -5,7 +5,7 @@ BASEREPONAME=krang
 REPO="dougbtv/$BASEREPONAME"
 BINARY="krangctl"
 INSTALL_DIR="/usr/local/bin"
-# VERSION="v0.0.2"
+VERSION=""
 
 ARCH=$(uname -m)
 OS=$(uname | tr '[:upper:]' '[:lower:]')
@@ -32,7 +32,6 @@ fi
 # Grab latest release
 if [[ -z "$VERSION" ]]; then
   echo "🔍 Fetching latest version from GitHub..."
-  # LATEST=$(curl -s $AUTH_HEADER "https://api.github.com/repos/${REPO}/releases/latest" | grep tag_name | cut -d '"' -f 4)
   LATEST=$(curl -s https://api.github.com/repos/$REPO/releases/latest | grep tag_name | cut -d '"' -f 4)
   if [[ -z "$LATEST" ]]; then
     echo "❌ Failed to fetch latest release"
