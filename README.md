@@ -14,11 +14,11 @@ For example -- say you want to do something to pod networking AFTER all the pods
 
 Check out the demo on asciinema:
 
-[![asciicast](https://asciinema.org/a/DSNTIQIg5VM2mGh5oFK7YlGUW.svg)](https://asciinema.org/a/DSNTIQIg5VM2mGh5oFK7YlGUW)
+[![asciicast](https://asciinema.org/a/gUqRuRY2sOv2YzlYDOqVdsg5C.svg)](https://asciinema.org/a/gUqRuRY2sOv2YzlYDOqVdsg5C)
 
 krang comes in two parts: A node-local daemon that can delegate CNI calls, and `krangctl` to make it a little easier to use.
 
-Inspired by [the technorganic villain](https://en.wikipedia.org/wiki/Krang), krang doesn’t *do* the fighting, krang puppeteers the exosuit and finances the foot soldiers. Likewise, this daemon doesn't replace your plugins -- it orchestrates them. Think of it as the brains behind your CNI plugins' brawn: coordinating plugin installs, executing mutations, and enabling on-the-fly changes to your pod networks -- all without leaving the comfort of Kubernetes.
+Inspired by [the technorganic villain](https://en.wikipedia.org/wiki/Krang), krang doesn’t *do* the fighting, krang puppeteers the exosuit that has all the rad tool and weapon attachments. Likewise, this daemon doesn't replace your plugins -- it orchestrates them. Think of it as the brains behind your CNI plugins' brawn: coordinating plugin installs, executing mutations, and enabling on-the-fly changes to your pod networks -- all without leaving the comfort of Kubernetes.
 
 Maybe it can inspire some thinking about the next generation of CNI and its integration with Kubernetes. But guess what? **krang doesn't require any mods to Kubernetes itself**! It works right out of the box with vanilla k8s.
 
@@ -58,7 +58,13 @@ krangctl --help
 
 ## Installing `krang` on Kubernetes.
 
-First clone the repo...
+You can install it with `krangctl`!
+
+```
+krangctl install
+```
+
+Or, first clone the repo...
 
 ```
 git clone https://github.com/dougbtv/krang.git && cd krang
@@ -90,7 +96,7 @@ kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}
 krangctl register --binary-path /cni-plugins/bin/tuning --cni-type tuning --name tuning --image "quay.io/dosmith/cni-plugins:v1.6.2a"
 krangctl register --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "ghcr.io/k8snetworkplumbingwg/multus-cni:snapshot-thick"
 # Show the installed plugins.
-watch krangctl get
+watch -n1 krangctl get
 # Start a mutation request
 krangctl mutate --cni-type tuning --interface eth0 --matchlabels app=demotuning --config ./manifests/testing/tuning-passthru-conf.json
 # Check the logs, if you must.
@@ -98,24 +104,10 @@ krangctl mutate --cni-type tuning --interface eth0 --matchlabels app=demotuning 
 kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}') -- sysctl -n net.ipv4.conf.eth0.arp_filter
 ```
 
-You can use `krangctl` like this:
-
-```
-$ ./krangctl register --binary-path /usr/src/bin/cni/macvlan --cni-type macvlan --name macvlan --image "quay.io/dosmith/cni-plugins:v1.6.2"
-$ ./krangctl get 
-kube-system/macvlan
-  - kind-worker2: ready (ready: true)
-  - kind-worker: ready (ready: true)
-  - kind-control-plane: ready (ready: true)
-```
-
-```
-./krangctl register --binary-path /usr/src/multus-cni/bin/passthru --cni-type passthru --name passthru --image "quay.io/dosmith/multus-thick:cnisubdirA"
-```
-
 ## Outstanding stuff.
 
 * Basically everything.
+* Configurability (CNI conf, bin and cache directories, especially)
 * Only does conflists.
 * `$(more.)`
 
