@@ -182,7 +182,12 @@ func UpdateNodeStatus(
 			updated.Status.Nodes = append(updated.Status.Nodes, nodeStatus)
 		}
 
-		return c.Status().Update(ctx, updated)
+		if os.Getenv("FAKE_CLIENT_MODE") == "true" {
+			return c.Update(ctx, updated)
+		} else {
+			return c.Status().Update(ctx, updated)
+		}
+
 	})
 }
 

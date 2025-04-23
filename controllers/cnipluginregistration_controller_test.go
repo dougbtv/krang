@@ -3,15 +3,18 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/go-logr/stdr"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -35,6 +38,8 @@ var _ = Describe("CNIPluginRegistration Controller", func() {
 		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
 		Expect(krangv1alpha1.AddToScheme(scheme)).To(Succeed())
 
+		ctrl.SetLogger(stdr.New(log.New(os.Stdout, "", log.LstdFlags)))
+
 		k8sClient = fake.NewClientBuilder().WithScheme(scheme).Build()
 		reconciler = &CNIPluginRegistrationReconciler{
 			Client: k8sClient,
@@ -42,6 +47,7 @@ var _ = Describe("CNIPluginRegistration Controller", func() {
 		}
 
 		_ = os.Setenv("NODE_NAME", "test-node")
+		_ = os.Setenv("FAKE_CLIENT_MODE", "true")
 	})
 
 	AfterEach(func() {
@@ -53,7 +59,7 @@ var _ = Describe("CNIPluginRegistration Controller", func() {
 		plugin := &krangv1alpha1.CNIPluginRegistration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "tuning",
-				Namespace: "default",
+				Namespace: "kube-system",
 			},
 			Spec: krangv1alpha1.CNIPluginRegistrationSpec{
 				BinaryPath:     "/usr/src/bin/cni/tuning",
