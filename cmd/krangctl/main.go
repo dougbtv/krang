@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -23,6 +24,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	krangv1alpha1 "github.com/dougbtv/krang/api/v1alpha1"
+
+	netdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	netdefclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 )
 
 var manifestURLs = []string{
@@ -58,6 +62,16 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func newGetCmd(kubeconfig *string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get",
+		Short: "Retrieve krang-managed resources like plugins or configs",
+	}
+	cmd.AddCommand(newGetPluginsCmd(kubeconfig))
+	cmd.AddCommand(newGetConfigsCmd(kubeconfig))
+	return cmd
 }
 
 func newRegisterCmd(kubeconfig *string) *cobra.Command {
@@ -133,10 +147,10 @@ func newUnregisterCmd(kubeconfig *string) *cobra.Command {
 	return cmd
 }
 
-func newGetCmd(kubeconfig *string) *cobra.Command {
+func newGetPluginsCmd(kubeconfig *string) *cobra.Command {
 	var namespace string
 	cmd := &cobra.Command{
-		Use:   "get",
+		Use:   "plugins",
 		Short: "List all CNIPluginRegistrations",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			k8sClient, err := newClient(*kubeconfig)
@@ -169,6 +183,53 @@ func newGetCmd(kubeconfig *string) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&namespace, "namespace", "kube-system", "Namespace to query")
+	return cmd
+}
+
+func newGetConfigsCmd(kubeconfig *string) *cobra.Command {
+	var namespace string
+	cmd := &cobra.Command{
+		Use:   "configs",
+		Short: "List NetworkAttachmentDefinitions (CNI configs)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+			if err != nil {
+				return fmt.Errorf("failed to load kubeconfig: %w", err)
+			}
+
+			netClient, err := netdefclient.NewForConfig(config)
+			if err != nil {
+				return fmt.Errorf("failed to create net-attach-def client: %w", err)
+			}
+
+			var defs *netdefv1.NetworkAttachmentDefinitionList
+			if namespace == "" {
+				defs, err = netClient.K8sCniCncfIoV1().NetworkAttachmentDefinitions("").List(context.Background(), metav1.ListOptions{})
+			} else {
+				defs, err = netClient.K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(context.Background(), metav1.ListOptions{})
+			}
+			if err != nil {
+				return fmt.Errorf("failed to list net-attach-defs: %w", err)
+			}
+
+			fmt.Printf("%-25s %-30s %-10s\n", "NAMESPACE", "NAME", "CNI TYPE")
+			for _, def := range defs.Items {
+				cniType := "-"
+				if def.Spec.Config != "" {
+					// naïvely parse CNI type from JSON config string
+					var parsed map[string]interface{}
+					_ = json.Unmarshal([]byte(def.Spec.Config), &parsed)
+					if t, ok := parsed["type"].(string); ok {
+						cniType = t
+					}
+				}
+				fmt.Printf("%-25s %-30s %-10s\n", def.Namespace, def.Name, cniType)
+			}
+
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&namespace, "namespace", "", "Namespace to query (empty for all)")
 	return cmd
 }
 

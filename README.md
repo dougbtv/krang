@@ -110,6 +110,7 @@ kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}
 * Basically everything.
 * Configurability (CNI conf, bin and cache directories, especially)
 * Only does conflists.
+* The `UPDATE` is really just a hacked `ADD` until there's a proper proposal.
 * `$(more.)`
 
 ## Further ideas.
@@ -132,3 +133,6 @@ kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}
 * CNI Cache
   * Need to keep output, and decide how to use it
   * It also uses the existing `ADD` cache, is that the right approach? Could be done other ways.
+* Multus compatibility: Call the Multus API through the socket.
+  * Similarl to Miguel's dynamic attachments controller.
+* DRA lacks a way to tie to a CNI plugin to a resource. Can krang do that?
