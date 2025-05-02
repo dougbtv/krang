@@ -1,0 +1,11 @@
+apiVersion: k8s.cni.cncf.io/v1alpha1
+kind: CNIValidation
+metadata:
+  name: validate-macvlan
+  namespace: kube-system
+spec:
+  networkRef:
+    name: macvlan-conf
+    namespace: kube-system
+    kind: NetworkAttachmentDefinition
+    apiGroup: k8s.cni.cncf.io

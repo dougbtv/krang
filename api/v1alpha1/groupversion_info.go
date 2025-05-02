@@ -18,6 +18,10 @@ var (
 			&CNIMutationRequestList{},
 			&CNIPluginRegistration{},
 			&CNIPluginRegistrationList{},
+			&CNIValidation{},
+			&CNIValidationList{},
+			&CNICanary{},
+			&CNICanaryList{},
 		)
 		metav1.AddToGroupVersion(scheme, GroupVersion)
 		return nil

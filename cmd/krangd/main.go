@@ -76,6 +76,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.CNIValidationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		logging.Panicf("Unable to create validation controller: %v", err)
+		os.Exit(1)
+	}
+
 	logging.Verbosef("Controller setup complete, starting manager loop")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		logging.Panicf("Problem running manager: %v", err)

@@ -57,4 +57,5 @@ krangd-remote-copy:
 	@echo "SCP-ing krangd to remote dev box..."
 	scp $(PROXY_COMMAND) bin/krangd fedora@$(REMOTE_HOST):$(HOME_REMOTE_PATH)krangd
 	scp $(PROXY_COMMAND) manifests/krangd-dev-daemonset.yml fedora@$(REMOTE_HOST):$(HOME_REMOTE_PATH)
+	scp $(PROXY_COMMAND) manifests/crd/* fedora@$(REMOTE_HOST):$(HOME_REMOTE_PATH)
 	@echo "Done with remote deploy."
