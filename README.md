@@ -105,6 +105,17 @@ krangctl mutate --cni-type tuning --interface eth0 --matchlabels app=demotuning 
 kubectl exec $(kubectl get pods | grep "demotuning" | head -n1 | awk '{print $1}') -- sysctl -n net.ipv4.conf.eth0.arp_filter
 ```
 
+Validation demo.
+
+```bash
+# Create a demo net-attach-def that uses passthru CNI.
+kubectl create -f manifests/testing/net-attach-simple.yml
+# Create a validation request for it, to validate it.
+krangctl validate --namespace default --net-attach-def simple-conf
+# Watch it become validated, note that "parses" and "installed" should be true.
+watch -n1 ./krangctl get validations
+```
+
 ## Outstanding stuff.
 
 * Basically everything.

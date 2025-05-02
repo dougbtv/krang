@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
@@ -57,6 +58,7 @@ func main() {
 	rootCmd.AddCommand(newInstallCmd(&kubeconfig))
 	rootCmd.AddCommand(newUninstallCmd(&kubeconfig))
 	rootCmd.AddCommand(newUpgradeCmd(&kubeconfig))
+	rootCmd.AddCommand(newValidateCmd(&kubeconfig))
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -71,6 +73,83 @@ func newGetCmd(kubeconfig *string) *cobra.Command {
 	}
 	cmd.AddCommand(newGetPluginsCmd(kubeconfig))
 	cmd.AddCommand(newGetConfigsCmd(kubeconfig))
+	cmd.AddCommand(newGetValidationsCmd(kubeconfig))
+	return cmd
+}
+
+func newGetValidationsCmd(kubeconfig *string) *cobra.Command {
+	var namespace string
+	cmd := &cobra.Command{
+		Use:   "validations",
+		Short: "List all CNIValidation CRs",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			k8sClient, err := newClient(*kubeconfig)
+			if err != nil {
+				return err
+			}
+
+			var list krangv1alpha1.CNIValidationList
+			listOpts := []client.ListOption{}
+			if namespace != "" {
+				listOpts = append(listOpts, client.InNamespace(namespace))
+			}
+
+			if err := k8sClient.List(context.Background(), &list, listOpts...); err != nil {
+				return err
+			}
+
+			fmt.Printf("%-20s %-25s %-25s %-20s %-10s %-10s\n", "NAMESPACE", "NAME", "NET-ATTACH-DEF", "INSTALLED", "PARSES", "PHASE")
+			for _, v := range list.Items {
+				fmt.Printf("%-20s %-25s %-25s %-20v %-10v %-10s\n", v.Namespace, v.Name, v.Spec.NetworkRef.Namespace+"/"+v.Spec.NetworkRef.Name, v.Status.PluginsInstalled, v.Status.ConfigValid, v.Status.Phase)
+			}
+
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&namespace, "namespace", "", "Namespace to query (defaults to all)")
+	return cmd
+}
+
+func newValidateCmd(kubeconfig *string) *cobra.Command {
+	var namespace, netAttachDef string
+	cmd := &cobra.Command{
+		Use:   "validate",
+		Short: "Create a CNIValidation resource",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if namespace == "" || netAttachDef == "" {
+				return fmt.Errorf("both --namespace and --net-attach-def are required")
+			}
+
+			k8sClient, err := newClient(*kubeconfig)
+			if err != nil {
+				return err
+			}
+
+			validation := &krangv1alpha1.CNIValidation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "validate-" + strings.ReplaceAll(netAttachDef, ".", "-"),
+					Namespace: namespace,
+				},
+				Spec: krangv1alpha1.CNIValidationSpec{
+					NetworkRef: corev1.ObjectReference{
+						Kind:      "NetworkAttachmentDefinition",
+						Name:      netAttachDef,
+						Namespace: namespace,
+					},
+				},
+			}
+
+			if err := k8sClient.Create(context.Background(), validation); err != nil {
+				return fmt.Errorf("failed to create validation: %w", err)
+			}
+
+			fmt.Printf("Created CNIValidation for net-attach-def %s/%s\n", namespace, netAttachDef)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&namespace, "namespace", "", "Namespace of the NetworkAttachmentDefinition")
+	cmd.Flags().StringVar(&netAttachDef, "net-attach-def", "", "Name of the NetworkAttachmentDefinition")
 	return cmd
 }
 
