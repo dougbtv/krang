@@ -12,6 +12,7 @@ type CNIValidationSpec struct {
 	NetworkRef corev1.ObjectReference `json:"networkRef"`
 
 	// Reference to a CNICanary to validate
+	// +optional
 	CanaryRef corev1.ObjectReference `json:"canaryRef"`
 
 	// Optional override for config instead of resolving from NetAttachDef

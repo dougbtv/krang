@@ -1,3 +1,4 @@
+MAKEFLAGS += --no-print-directory
 REMOTE_HOST=192.168.122.138
 VIRTHOST_PROXY=ssh -W %h:%p root@192.168.50.200
 PROXY_COMMAND=-o ProxyCommand="$(VIRTHOST_PROXY)"

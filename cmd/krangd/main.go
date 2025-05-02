@@ -29,64 +29,87 @@ func init() {
 
 func main() {
 	var metricsAddr string
-	var enableLeaderElection bool
 	var logLevel string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
 	flag.StringVar(&logLevel, "log-level", "debug", "Set log level: debug, verbose, error, panic.")
 	flag.Parse()
 
 	// Initialize logger
 	logging.SetLogLevel(logLevel)
 	logging.SetLogStderr(true)
-	logging.Debugf("Starting krangd node-local daemon")
-
+	logging.Debugf("Starting krangd")
 	ctrl.SetLogger(stdr.New(log.New(os.Stderr, "", log.LstdFlags)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	cfg := ctrl.GetConfigOrDie()
+	// ctx := context.Background()
+
+	// --- Leader-only Manager (validation controller) ---
+	leaderMgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
-			// Port:        9443,
 		},
-		LeaderElection:         enableLeaderElection,
+		LeaderElection:         true,
 		LeaderElectionID:       "krangd-leader-election.k8s.cni.cncf.io",
 		HealthProbeBindAddress: ":8081",
 	})
 	if err != nil {
-		logging.Panicf("Unable to start manager: %v", err)
-		os.Exit(1)
-	}
-
-	if err = (&controllers.CNIPluginRegistrationReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		logging.Panicf("Unable to create controller: %v", err)
-		os.Exit(1)
-	}
-
-	if err = (&controllers.CNIMutationRequestReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		LocalNodeName: os.Getenv("NODE_NAME"),
-	}).SetupWithManager(mgr); err != nil {
-		logging.Panicf("Unable to create mutation controller: %v", err)
+		logging.Panicf("Unable to start leader manager: %v", err)
 		os.Exit(1)
 	}
 
 	if err = (&controllers.CNIValidationReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+		Client: leaderMgr.GetClient(),
+		Scheme: leaderMgr.GetScheme(),
+	}).SetupWithManager(leaderMgr); err != nil {
 		logging.Panicf("Unable to create validation controller: %v", err)
 		os.Exit(1)
 	}
 
-	logging.Verbosef("Controller setup complete, starting manager loop")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		logging.Panicf("Problem running manager: %v", err)
+	// --- Daemon-style Manager (runs on every node) ---
+	daemonMgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0", // disable metrics endpoint for daemon manager
+		},
+		LeaderElection: false,
+	})
+	if err != nil {
+		logging.Panicf("Unable to start daemon manager: %v", err)
+		os.Exit(1)
+	}
+
+	if err = (&controllers.CNIPluginRegistrationReconciler{
+		Client: daemonMgr.GetClient(),
+		Scheme: daemonMgr.GetScheme(),
+	}).SetupWithManager(daemonMgr); err != nil {
+		logging.Panicf("Unable to create plugin controller: %v", err)
+		os.Exit(1)
+	}
+
+	if err = (&controllers.CNIMutationRequestReconciler{
+		Client:        daemonMgr.GetClient(),
+		Scheme:        daemonMgr.GetScheme(),
+		LocalNodeName: os.Getenv("NODE_NAME"),
+	}).SetupWithManager(daemonMgr); err != nil {
+		logging.Panicf("Unable to create mutation controller: %v", err)
+		os.Exit(1)
+	}
+
+	signalHandler := ctrl.SetupSignalHandler()
+
+	go func() {
+		logging.Verbosef("Starting leader-only controller loop")
+		if err := leaderMgr.Start(signalHandler); err != nil {
+			logging.Panicf("Problem running leader manager: %v", err)
+			os.Exit(1)
+		}
+	}()
+
+	logging.Verbosef("Starting daemon controller loop")
+	if err := daemonMgr.Start(signalHandler); err != nil {
+		logging.Panicf("Problem running daemon manager: %v", err)
 		os.Exit(1)
 	}
 }

@@ -6,6 +6,5 @@ metadata:
 spec:
   networkRef:
     name: macvlan-conf
-    namespace: kube-system
+    namespace: default
     kind: NetworkAttachmentDefinition
-    apiGroup: k8s.cni.cncf.io
