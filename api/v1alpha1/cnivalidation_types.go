@@ -24,7 +24,7 @@ type CNIValidationSpec struct {
 type CNIValidationStatus struct {
 	// Whether the referenced plugins were found on disk
 	// +optional
-	PluginsInstalled bool `json:"pluginsInstalled,omitempty"`
+	PluginsInstalled bool `json:"pluginsInstalled"`
 
 	// Whether the config was syntactically valid
 	// +optional

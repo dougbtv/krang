@@ -10,6 +10,7 @@ import (
 	"github.com/dougbtv/krang/pkg/logging"
 
 	"github.com/go-logr/stdr"
+	netdefclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -44,6 +45,13 @@ func main() {
 	cfg := ctrl.GetConfigOrDie()
 	// ctx := context.Background()
 
+	// Create Net-attach-def client
+	netDefClient, err := netdefclient.NewForConfig(cfg)
+	if err != nil {
+		logging.Panicf("Unable to create NetDef client: %v", err)
+		os.Exit(1)
+	}
+
 	// --- Leader-only Manager (validation controller) ---
 	leaderMgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme,
@@ -60,8 +68,9 @@ func main() {
 	}
 
 	if err = (&controllers.CNIValidationReconciler{
-		Client: leaderMgr.GetClient(),
-		Scheme: leaderMgr.GetScheme(),
+		Client:       leaderMgr.GetClient(),
+		Scheme:       leaderMgr.GetScheme(),
+		NetDefClient: netDefClient,
 	}).SetupWithManager(leaderMgr); err != nil {
 		logging.Panicf("Unable to create validation controller: %v", err)
 		os.Exit(1)

@@ -18,6 +18,7 @@ rules:
       - cnivalidations/status
       - cnicanaries
       - cnicanaries/status
+      - network-attachment-definitions
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["nodes","pods"]
