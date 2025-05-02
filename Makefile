@@ -1,14 +1,10 @@
-KRANGD_HOST=192.168.122.138
-KRANGD_PROXY=ssh -W %h:%p root@192.168.50.200
+REMOTE_HOST=192.168.122.138
+VIRTHOST_PROXY=ssh -W %h:%p root@192.168.50.200
+PROXY_COMMAND=-o ProxyCommand="$(VIRTHOST_PROXY)"
 HOME_REMOTE_PATH=/home/fedora/
 KRANG_REMOTE_PATH=/var/lib/krangd/
-SSH_PROXY := ssh -W %h:%p root@192.168.50.200
 SSH_USER := fedora@192.168.122.138
 KRANG_IMAGE=ghcr.io/dougbtv/krang:latest
-
-define ssh_krangd
-	ssh $(SSH_PROXY) $(SSH_USER) '$(1)'
-endef
 
 generate:
 	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./api/..."
@@ -32,6 +28,10 @@ krangd-dev:
 	$(MAKE) krangd-remote-copy
 	$(MAKE) krangd-kind-copy
 
+build:
+	$(MAKE) krangd
+	$(MAKE) krangctl
+
 krangd:
 	GOARCH=amd64 CGO_ENABLED=0 go build -o bin/krangd ./cmd/krangd
 
@@ -40,11 +40,11 @@ krangctl:
 
 krangctl-dev:
 	$(MAKE) krangctl
-	scp -o ProxyCommand="$(KRANGD_PROXY)" bin/krangctl fedora@$(KRANGD_HOST):$(HOME_REMOTE_PATH)krangctl
+	scp $(PROXY_COMMAND) bin/krangctl fedora@$(REMOTE_HOST):$(HOME_REMOTE_PATH)krangctl
 
 krangd-kind-copy:
-	@echo "📦 Copying krangd into Kind nodes..."
-	@ssh -o ProxyCommand="$(SSH_PROXY)" $(SSH_USER) '\
+	@echo "Copying krangd into Kind nodes..."
+	@ssh $(PROXY_COMMAND) $(SSH_USER) '\
 		for node in $$(kind get nodes); do \
 			echo "💾 Copying into $$node..."; \
 			docker exec $$node mkdir -p $(KRANG_REMOTE_PATH); \
@@ -54,7 +54,7 @@ krangd-kind-copy:
 	@echo "✅ Done with Kind node deploy."
 
 krangd-remote-copy:
-	@echo "🌐 SCP-ing krangd to remote dev box..."
-	scp -o ProxyCommand="$(KRANGD_PROXY)" bin/krangd fedora@$(KRANGD_HOST):$(HOME_REMOTE_PATH)krangd
-	scp -o ProxyCommand="$(KRANGD_PROXY)" manifests/krangd-dev-daemonset.yml fedora@$(KRANGD_HOST):$(HOME_REMOTE_PATH)
-	@echo "✅ Done with remote deploy."
+	@echo "SCP-ing krangd to remote dev box..."
+	scp $(PROXY_COMMAND) bin/krangd fedora@$(REMOTE_HOST):$(HOME_REMOTE_PATH)krangd
+	scp $(PROXY_COMMAND) manifests/krangd-dev-daemonset.yml fedora@$(REMOTE_HOST):$(HOME_REMOTE_PATH)
+	@echo "Done with remote deploy."
